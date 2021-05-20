@@ -3,65 +3,101 @@ from splinter import Browser
 from bs4 import BeautifulSoup as soup
 from webdriver_manager.chrome import ChromeDriverManager
 import pandas as pd
+import datetime as dt
 
-# Sets up executable path
-executable_path = {'executable_path': ChromeDriverManager().install()}
-browser = Browser('chrome', **executable_path, headless=False)
+# Function establishes communication between code and MongoDB
+def scrape_all():
+    # Initiates headless driver for deployment
+    executable_path = {'executable_path': ChromeDriverManager().install()}
+    browser = Browser('chrome', **executable_path, headless=True)
 
-# Visits the mars nasa news site
-url = 'https://redplanetscience.com'
-browser.visit(url)
-# Optional delay for loading the page
-browser.is_element_present_by_css('div.list_text', wait_time=1)
+    # Sets news title and paragraph variables
+    news_title, news_paragraph = mars_news(browser)
 
-# Sets up html parser
-html = browser.html
-news_soup = soup(html, 'html.parser')
-slide_elem = news_soup.select_one('div.list_text')
+    # Runs all scraping functions and stores results in dictionary
+    data = {
+          "news_title": news_title,
+          "news_paragraph": news_paragraph,
+          "featured_image": featured_image(browser),
+          "facts": mars_facts(),
+          "last_modified": dt.datetime.now()
+    }
 
-# Scrapes data for content title
-slide_elem.find('div', class_='content_title')
+    # Stops webdriver and returns data
+    browser.quit()
+    return data
 
-# Uses the parent element to find the first `a` tag and save it as `news_title`
-news_title = slide_elem.find('div', class_='content_title').get_text()
-news_title
+# Function scrapes news title and paragraph summary
+def mars_news(browser):
+    # Visits the mars nasa news site
+    url = 'https://redplanetscience.com'
+    browser.visit(url)
+    # Optional delay for loading the page
+    browser.is_element_present_by_css('div.list_text', wait_time=1)
 
-# Uses the parent element to find the paragraph text
-news_p = slide_elem.find('div', class_='article_teaser_body').get_text()
-news_p
+    # Sets up html parser
+    html = browser.html
+    news_soup = soup(html, 'html.parser')
+
+    # Adds try/except for error handling
+    try:
+        slide_elem = news_soup.select_one('div.list_text')
+        # Uses the parent element to find the first 'a' tag and save it as 'news_title'
+        news_title = slide_elem.find('div', class_='content_title').get_text()
+        # Uses the parent element to find the paragraph text
+        news_p = slide_elem.find('div', class_='article_teaser_body').get_text()
+    except AttributeError:
+        return None, None
+
+    return news_title, news_p
 
 # ### Featured Images
 
-# Visits URL
-url = 'https://spaceimages-mars.com'
-browser.visit(url)
+# Function scrapes featured image
+def featured_image(browser):
+    # Visits URL
+    url = 'https://spaceimages-mars.com'
+    browser.visit(url)
 
-# Finds and clicks the full image button
-full_image_elem = browser.find_by_tag('button')[1]
-full_image_elem.click()
+    # Finds and clicks the full image button
+    full_image_elem = browser.find_by_tag('button')[1]
+    full_image_elem.click()
 
-# Parses the resulting html with soup
-html = browser.html
-img_soup = soup(html, 'html.parser')
+    # Parses the resulting html with soup
+    html = browser.html
+    img_soup = soup(html, 'html.parser')
 
-# Finds the relative image url
-img_url_rel = img_soup.find('img', class_='fancybox-image').get('src')
-img_url_rel
+    # Adds try/except for error handling
+    try:
+        # finds the relative image url
+        img_url_rel = img_soup.find('img', class_='fancybox-image').get('src')
+    except AttributeError:
+        return None
 
-# Uses the base URL to create an absolute URL
-img_url = f'https://spaceimages-mars.com/{img_url_rel}'
-img_url
+    # Uses the base URL to create an absolute URL
+    img_url = f'https://spaceimages-mars.com/{img_url_rel}'
+
+    return img_url
 
 # ### Mars Facts Table
 
-# Scrapes entire table from website
-df = pd.read_html('https://galaxyfacts-mars.com')[0]
-df.columns=['description', 'Mars', 'Earth']
-df.set_index('description', inplace=True)
-df
+# Function scrapes facts table
+def mars_facts():
+    # Adds try/except for error handling
+    try:
+      # uses 'read_html" to scrape the facts table into a dataframe
+      df = pd.read_html('https://galaxyfacts-mars.com')[0]
+    except BaseException:
+      return None
+    
+    # Scrapes entire table from website
+    df.columns=['description', 'Mars', 'Earth']
+    df.set_index('description', inplace=True)
 
-# Converts dataframe into html-ready code
-df.to_html()
+    # Converts dataframe into html-ready code and adds bootstrap
+    return df.to_html()
 
-# Ends session
-browser.quit()
+# Lets Flask konw that script is complete and ready
+if __name__ == "__main__":
+    # If running as script, print scraped data
+    print(scrape_all())
