@@ -42,6 +42,19 @@
                 </div>
             </div>
         </div>
+        <!-- Mars Hemispheres -->
+        <div class="row" id="mars-hemispheres">
+            <div class="col-md-12">
+                <!-- Info for centering text found at https://htmlcheatsheet.com/m/ -->
+                <h2 style="text-align: center;">Mars Hemispheres</h2>
+            </div>
+            {% for hemisphere in mars.hemispheres %}
+                <div class="col-md-6">
+                    <img src="{{ hemisphere['img_url'] }}" class="img-responsive" alt="Responsive image">
+                    <h4>{{ hemisphere['title'] }}</h4>
+                </div>
+            {% endfor %}
+        </div>
     </div>
 </body>
 </html>

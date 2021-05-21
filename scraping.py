@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup as soup
 from webdriver_manager.chrome import ChromeDriverManager
 import pandas as pd
 import datetime as dt
+import re
 
 # Function establishes communication between code and MongoDB
 def scrape_all():
@@ -20,7 +21,8 @@ def scrape_all():
           "news_paragraph": news_paragraph,
           "featured_image": featured_image(browser),
           "facts": mars_facts(),
-          "last_modified": dt.datetime.now()
+          "last_modified": dt.datetime.now(),
+          "hemispheres": mars_hemispheres(browser)
     }
 
     # Stops webdriver and returns data
@@ -96,6 +98,45 @@ def mars_facts():
 
     # Converts dataframe into html-ready code and adds bootstrap
     return df.to_html()
+
+# Function scrapes image urls and titles for mars's hemispheres
+def mars_hemispheres(browser):
+    # 1. Use browser to visit the URL 
+    url = 'https://marshemispheres.com/'
+
+    browser.visit(url)
+
+    # 2. Create a list to hold the images and titles.
+    hemisphere_image_urls = []
+
+    # 3. Write code to retrieve the image urls and titles for each hemisphere.
+    # List of locations of link tags
+    indices = [1, 3, 5, 7]
+    for i in indices:
+        # Finds and clicks on the hemisphere link
+        hemisphere_link = browser.find_by_tag('a.itemLink.product-item')[i]
+        hemisphere_link.click()
+        # Holds image urls and titles
+        hemispheres = {}
+        # Parses the resulting html with soup
+        html = browser.html
+        img_soup = soup(html, 'html.parser')
+        # Finds the full-resolution image url
+        # Note: info on how to get specific href using regular expressions was found at https://stackoverflow.com/questions/7732694/find-specific-link-w-beautifulsoup
+        img_url_rel = img_soup.find('a', href=re.compile('jpg')).get('href')
+        # Uses the base URL to create an absolute URL
+        img_url = f'https://marshemispheres.com/{img_url_rel}'
+        # Finds title 
+        title = img_soup.find('h2', class_='title').get_text()
+        # Adds image url and title to hemispheres dictionary
+        hemispheres['img_url'] = img_url
+        hemispheres['title'] = title
+        # Adds hemispheres dictionary to list in step 2
+        hemisphere_image_urls.append(hemispheres)
+        # Navigates back to beginning of browser
+        browser.back()
+
+    return hemisphere_image_urls
 
 # Lets Flask konw that script is complete and ready
 if __name__ == "__main__":
